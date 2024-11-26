@@ -100,17 +100,39 @@ def get_propostas():
     return jsonify(propostas_com_similaridade)
 
 def buscar_propostas(solicitacao):
-    sql = text(f"SELECT p.valorTotal, p.dtEntrega, f.anosExperiencia, f.recorrente FROM Proposta p INNER JOIN Fornecedor f ON p.fkFornecedor = f.idFornecedor WHERE p.fkSolicitacao = {solicitacao};")
+    sql = text(f"""
+        SELECT 
+            p.idProposta,
+            f.empresa,
+            f.telefone,
+            f.email,
+            p.valorTotal,
+            p.dtEntrega,
+            f.recorrente,
+            f.anosExperiencia
+        FROM 
+            Proposta p
+        INNER JOIN 
+            Fornecedor f
+        ON 
+            p.fkFornecedor = f.idFornecedor
+        WHERE 
+            p.fkSolicitacao = {solicitacao};
+    """)
     result = db.session.execute(sql).fetchall()
 
     propostas = []
 
     for row in result:
         proposta = {
-            'valorTotal': row[0],
-            'dtEntrega': row[1],
-            'anosExperiencia': row[2],
-            'recorrente': row[3]
+            'idProposta': row[0],
+            'empresa': row[1],
+            'telefone': row[2],
+            'email': row[3],
+            'valorTotal': row[4],
+            'dtEntrega': row[5],
+            'recorrente': row[6],
+            'anosExperiencia': row[7]
         }
         propostas.append(proposta)
 
