@@ -31,7 +31,6 @@ def classificar_experiencia(anos):
         return 'Intermediário'
     else:
         return 'Experiente'
-
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
