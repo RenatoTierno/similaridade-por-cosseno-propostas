@@ -1,9 +1,17 @@
 from flask import Flask, request, jsonify
-from sklearn.metrics.pairwise import cosine_similarity
-from datetime import datetime
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
+from datetime import datetime
+from collections import OrderedDict
 
 app = Flask(__name__)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:_Arc3usadmin7410@fornecedores.cxic2sq6q4t5.us-east-1.rds.amazonaws.com/Fornecedores'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 # Função para calcular a similaridade por cosseno
 def calcular_similaridade(vetor1, vetor2):
@@ -15,12 +23,7 @@ def normalizar(valor, minimo, maximo):
         return 0
     return (valor - minimo) / (maximo - minimo)
 
-# Função para calcular a diferença de dias entre a data de entrega e a data atual
-def calcular_dias_para_entrega(dtEntrega_usuario):
-    diff = (dtEntrega_usuario - datetime.today().date()).days
-    return abs(diff)  # Usamos o valor absoluto da diferença para evitar valores negativos
-
-# Função para classificar anos de experiência
+# Função para classificar o anosExperiencia
 def classificar_experiencia(anos):
     if anos <= 5:
         return 'Iniciante'
@@ -28,7 +31,6 @@ def classificar_experiencia(anos):
         return 'Intermediário'
     else:
         return 'Experiente'
-
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
@@ -53,8 +55,9 @@ def get_propostas():
             dtEntrega_usuario = datetime.strptime(dtEntrega, '%Y-%m-%d').date()
         else:
             dtEntrega_usuario = dtEntrega
-        dias_para_entrega = calcular_dias_para_entrega(dtEntrega_usuario)
-        vetor_usuario.append(dias_para_entrega)
+
+        diff_dtEntrega_usuario = (dtEntrega_usuario - datetime.today().date()).days
+        vetor_usuario.append(diff_dtEntrega_usuario)
         parametros_usuario.append('dtEntrega')
 
     # Adiciona a experiência ao vetor se não for vazia
@@ -80,8 +83,8 @@ def get_propostas():
             vetor_proposta.append(float(proposta['valorTotal']))
         if 'dtEntrega' in parametros_usuario:
             dtEntrega_proposta = proposta['dtEntrega']
-            dias_para_entrega_proposta = calcular_dias_para_entrega(dtEntrega_proposta)
-            vetor_proposta.append(dias_para_entrega_proposta)
+            diff = (dtEntrega_usuario - dtEntrega_proposta).days
+            vetor_proposta.append(abs(diff))  # Valor absoluto da diferença
         if 'experiencia' in parametros_usuario:
             vetor_proposta.append(int(proposta['anosExperiencia']))
         if 'recorrente' in parametros_usuario:
@@ -97,11 +100,20 @@ def get_propostas():
         # Calcular similaridade
         if vetor_usuario_normalizado and vetor_proposta_normalizado:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
+            proposta['similaridade'] = similaridade
+            # Transformar recorrente para 'Sim' ou 'Não'
+            proposta['recorrente'] = 'Sim' if proposta['recorrente'] == 1 else 'Não'
+            # Lista de chaves na ordem desejada
+            ordem_chaves = ['idProposta', 'empresa', 'telefone', 'email', 'valorTotal', 'dtEntrega', 'recorrente', 'anosExperiencia', 'similaridade']
+            # Construindo o OrderedDict na ordem correta
+            proposta_ordenada = OrderedDict()
+            for chave in ordem_chaves:
+                # Garantir que só adicione a chave se ela existir na proposta
+                if chave in proposta:
+                    proposta_ordenada[chave] = proposta[chave]
             proposta['similaridade'] = f"{similaridade * 100:.2f}%"  # Similaridade em formato de porcentagem
-
             # Classificar experiência
             proposta['anosExperiencia'] = classificar_experiencia(proposta['anosExperiencia'])
-
             # Organizar os campos na ordem correta
             proposta_ordenada = {
                 'idProposta': proposta['idProposta'],
@@ -144,9 +156,9 @@ def buscar_propostas(solicitacao):
     """)
 
     result = db.session.execute(sql).fetchall()
-    
+
     propostas = []
-    
+
     for row in result:
         proposta = OrderedDict({
             'idProposta': row[0],
@@ -160,7 +172,7 @@ def buscar_propostas(solicitacao):
             'similaridade': None  # Aqui adiciona-se a coluna similaridade
         })
         propostas.append(proposta)
-    
+
     return propostas
 
 if __name__ == '__main__':
