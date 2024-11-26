@@ -94,18 +94,18 @@ def get_propostas():
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = similaridade
 
-            # Organize the keys in the desired order
-            proposta_ordenada = {
+            # Organize the keys in the desired order and transform recorrente to 'Sim' or 'Não'
+            proposta_ordenada = OrderedDict({
                 'idProposta': proposta['idProposta'],
                 'empresa': proposta['empresa'],
                 'telefone': proposta['telefone'],
                 'email': proposta['email'],
                 'valorTotal': proposta['valorTotal'],
                 'dtEntrega': proposta['dtEntrega'],
-                'recorrente': proposta['recorrente'],
+                'recorrente': 'Sim' if proposta['recorrente'] == 1 else 'Não',
                 'anosExperiencia': proposta['anosExperiencia'],
                 'similaridade': proposta['similaridade']
-            }
+            })
 
             propostas_com_similaridade.append(proposta_ordenada)
 
