@@ -24,6 +24,9 @@ def normalizar(valor, minimo, maximo):
     return (valor - minimo) / (maximo - minimo)
 
 @app.route('/propostas', methods=['GET'])
+from collections import OrderedDict
+
+@app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
     solicitacao = request.args.get('solicitacao')
@@ -93,7 +96,19 @@ def get_propostas():
         if vetor_usuario_normalizado and vetor_proposta_normalizado:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = similaridade
-            propostas_com_similaridade.append(proposta)
+            # Ordenando e criando o dicionário com a ordem desejada
+            proposta_ord = OrderedDict({
+                'idProposta': proposta['idProposta'],
+                'empresa': proposta['empresa'],
+                'telefone': proposta['telefone'],
+                'email': proposta['email'],
+                'valorTotal': proposta['valorTotal'],
+                'dtEntrega': proposta['dtEntrega'],
+                'recorrente': proposta['recorrente'],
+                'anosExperiencia': proposta['anosExperiencia'],
+                'similaridade': similaridade
+            })
+            propostas_com_similaridade.append(proposta_ord)
 
     # Ordenar as propostas pela similaridade
     propostas_com_similaridade.sort(key=lambda x: x['similaridade'], reverse=True)
