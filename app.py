@@ -5,7 +5,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from datetime import datetime
 from collections import OrderedDict
-from sklearn.preprocessing import StandardScaler  # Importando o StandardScaler
 
 app = Flask(__name__)
 
@@ -18,18 +17,11 @@ db = SQLAlchemy(app)
 def calcular_similaridade(vetor1, vetor2):
     return cosine_similarity([vetor1], [vetor2])[0][0]
 
-# Função para normalizar os valores usando o StandardScaler
-def normalizar_com_scaler(vetor_usuario, vetor_proposta):
-    # Concatenar os vetores do usuário e da proposta para normalizar juntos
-    scaler = StandardScaler()
-    dados = np.array(vetor_usuario + vetor_proposta).reshape(1, -1)
-    dados_normalizados = scaler.fit_transform(dados)
-
-    # Separar os vetores normalizados
-    vetor_usuario_normalizado = dados_normalizados[0][:len(vetor_usuario)]
-    vetor_proposta_normalizado = dados_normalizados[0][len(vetor_usuario):]
-
-    return vetor_usuario_normalizado, vetor_proposta_normalizado
+# Função para normalizar os valores
+def normalizar(valor, minimo, maximo):
+    if maximo - minimo == 0:
+        return 0
+    return (valor - minimo) / (maximo - minimo)
 
 # Função para classificar o anosExperiencia
 def classificar_experiencia(anos):
@@ -39,7 +31,6 @@ def classificar_experiencia(anos):
         return 'Intermediário'
     else:
         return 'Experiente'
-
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
@@ -102,11 +93,12 @@ def get_propostas():
             else:
                 vetor_proposta.append(0)
 
-        # Normalização dos vetores usando o StandardScaler
-        vetor_usuario_normalizado, vetor_proposta_normalizado = normalizar_com_scaler(vetor_usuario, vetor_proposta)
+        # Normalização dos vetores
+        vetor_usuario_normalizado = [normalizar(v, min(vetor_usuario), max(vetor_usuario)) for v in vetor_usuario]
+        vetor_proposta_normalizado = [normalizar(v, min(vetor_proposta), max(vetor_proposta)) for v in vetor_proposta]
 
         # Calcular similaridade
-        if vetor_usuario_normalizado.any() and vetor_proposta_normalizado.any():
+        if vetor_usuario_normalizado and vetor_proposta_normalizado:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = similaridade
             # Transformar recorrente para 'Sim' ou 'Não'
@@ -116,6 +108,7 @@ def get_propostas():
             # Construindo o OrderedDict na ordem correta
             proposta_ordenada = OrderedDict()
             for chave in ordem_chaves:
+                # Garantir que só adicione a chave se ela existir na proposta
                 if chave in proposta:
                     proposta_ordenada[chave] = proposta[chave]
             proposta['similaridade'] = f"{similaridade * 100:.2f}%"  # Similaridade em formato de porcentagem
