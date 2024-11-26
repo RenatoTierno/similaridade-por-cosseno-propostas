@@ -119,10 +119,11 @@ def buscar_propostas(solicitacao):
         WHERE 
             p.fkSolicitacao = {solicitacao};
     """)
+
     result = db.session.execute(sql).fetchall()
-
+    
     propostas = []
-
+    
     for row in result:
         proposta = {
             'idProposta': row[0],
@@ -132,10 +133,11 @@ def buscar_propostas(solicitacao):
             'valorTotal': row[4],
             'dtEntrega': row[5],
             'recorrente': row[6],
-            'anosExperiencia': row[7]
+            'anosExperiencia': row[7],
+            'similaridade': None  # Aqui adiciona-se a coluna similaridade
         }
         propostas.append(proposta)
-
+    
     return propostas
 
 if __name__ == '__main__':
