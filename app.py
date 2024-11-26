@@ -106,7 +106,7 @@ def get_propostas():
         vetor_usuario_normalizado, vetor_proposta_normalizado = normalizar_com_scaler(vetor_usuario, vetor_proposta)
 
         # Calcular similaridade
-        if vetor_usuario_normalizado and vetor_proposta_normalizado:
+        if vetor_usuario_normalizado.any() and vetor_proposta_normalizado.any():
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = similaridade
             # Transformar recorrente para 'Sim' ou 'Não'
