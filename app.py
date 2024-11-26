@@ -4,6 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from datetime import datetime
+from collections import OrderedDict
 
 app = Flask(__name__)
 
@@ -125,7 +126,7 @@ def buscar_propostas(solicitacao):
     propostas = []
     
     for row in result:
-        proposta = {
+        proposta = OrderedDict({
             'idProposta': row[0],
             'empresa': row[1],
             'telefone': row[2],
@@ -135,7 +136,7 @@ def buscar_propostas(solicitacao):
             'recorrente': row[6],
             'anosExperiencia': row[7],
             'similaridade': None  # Aqui adiciona-se a coluna similaridade
-        }
+        })
         propostas.append(proposta)
     
     return propostas
