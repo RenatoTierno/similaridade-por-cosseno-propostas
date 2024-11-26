@@ -93,8 +93,9 @@ def get_propostas():
         if vetor_usuario_normalizado and vetor_proposta_normalizado:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = similaridade
-            # Ordenando e criando o dicionário com a ordem desejada
-            proposta_ord = OrderedDict({
+
+            # Organize the keys in the desired order
+            proposta_ordenada = {
                 'idProposta': proposta['idProposta'],
                 'empresa': proposta['empresa'],
                 'telefone': proposta['telefone'],
@@ -103,9 +104,10 @@ def get_propostas():
                 'dtEntrega': proposta['dtEntrega'],
                 'recorrente': proposta['recorrente'],
                 'anosExperiencia': proposta['anosExperiencia'],
-                'similaridade': similaridade
-            })
-            propostas_com_similaridade.append(proposta_ord)
+                'similaridade': proposta['similaridade']
+            }
+
+            propostas_com_similaridade.append(proposta_ordenada)
 
     # Ordenar as propostas pela similaridade
     propostas_com_similaridade.sort(key=lambda x: x['similaridade'], reverse=True)
