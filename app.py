@@ -65,9 +65,6 @@ def get_propostas():
     # Buscar as propostas no banco de dados
     propostas = buscar_propostas(solicitacao)
 
-    # Lista de chaves na ordem desejada
-    ordem_chaves = ['idProposta', 'empresa', 'telefone', 'email', 'valorTotal', 'dtEntrega', 'recorrente', 'anosExperiencia', 'similaridade']
-
     # Calcular a similaridade de cada proposta com o vetor do usuário
     propostas_com_similaridade = []
 
@@ -100,9 +97,14 @@ def get_propostas():
             # Transformar recorrente para 'Sim' ou 'Não'
             proposta['recorrente'] = 'Sim' if proposta['recorrente'] == 1 else 'Não'
 
+            # Lista de chaves na ordem desejada
+            ordem_chaves = ['idProposta', 'empresa', 'telefone', 'email', 'valorTotal', 'dtEntrega', 'recorrente', 'anosExperiencia', 'similaridade']
+
             # Construindo o OrderedDict na ordem correta
             proposta_ordenada = OrderedDict()
+
             for chave in ordem_chaves:
+                # Garantir que só adicione a chave se ela existir na proposta
                 if chave in proposta:
                     proposta_ordenada[chave] = proposta[chave]
 
