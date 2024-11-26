@@ -23,6 +23,15 @@ def normalizar(valor, minimo, maximo):
         return 0
     return (valor - minimo) / (maximo - minimo)
 
+# Função para classificar o anosExperiencia
+def classificar_experiencia(anos):
+    if anos <= 5:
+        return 'Iniciante'
+    elif anos <= 15:
+        return 'Intermediário'
+    else:
+        return 'Experiente'
+
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
@@ -92,21 +101,23 @@ def get_propostas():
         # Calcular similaridade
         if vetor_usuario_normalizado and vetor_proposta_normalizado:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
-            proposta['similaridade'] = similaridade
+            proposta['similaridade'] = f"{similaridade * 100:.2f}%"  # Similaridade em formato de porcentagem
 
-            # Transformar recorrente para 'Sim' ou 'Não'
-            proposta['recorrente'] = 'Sim' if proposta['recorrente'] == 1 else 'Não'
+            # Classificar experiência
+            proposta['anosExperiencia'] = classificar_experiencia(proposta['anosExperiencia'])
 
-            # Lista de chaves na ordem desejada
-            ordem_chaves = ['idProposta', 'empresa', 'telefone', 'email', 'valorTotal', 'dtEntrega', 'recorrente', 'anosExperiencia', 'similaridade']
-
-            # Construindo o OrderedDict na ordem correta
-            proposta_ordenada = OrderedDict()
-
-            for chave in ordem_chaves:
-                # Garantir que só adicione a chave se ela existir na proposta
-                if chave in proposta:
-                    proposta_ordenada[chave] = proposta[chave]
+            # Organizar os campos na ordem correta
+            proposta_ordenada = {
+                'idProposta': proposta['idProposta'],
+                'empresa': proposta['empresa'],
+                'telefone': proposta['telefone'],
+                'email': proposta['email'],
+                'valorTotal': proposta['valorTotal'],
+                'dtEntrega': proposta['dtEntrega'],
+                'recorrente': 'Sim' if proposta['recorrente'] == 1 else 'Não',
+                'anosExperiencia': proposta['anosExperiencia'],
+                'similaridade': proposta['similaridade']
+            }
 
             propostas_com_similaridade.append(proposta_ordenada)
 
