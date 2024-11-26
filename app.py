@@ -24,9 +24,6 @@ def normalizar(valor, minimo, maximo):
     return (valor - minimo) / (maximo - minimo)
 
 @app.route('/propostas', methods=['GET'])
-from collections import OrderedDict
-
-@app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
     solicitacao = request.args.get('solicitacao')
