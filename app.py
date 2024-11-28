@@ -69,7 +69,7 @@ def get_propostas():
 
     # Preparar dados para normalização
     valores = np.array([proposta['valorTotal'] for proposta in propostas]).reshape(-1, 1)
-    entregas = np.array([(datetime.strptime(proposta['dtEntrega'], '%Y-%m-%d').date() - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
+    entregas = np.array([(proposta['dtEntrega'] - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
 
     # Configurar os escalonadores
     scaler_valor = MinMaxScaler()
