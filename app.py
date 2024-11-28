@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from datetime import datetime
 from collections import OrderedDict
+from sklearn.preprocessing import MinMaxScaler
 
 app = Flask(__name__)
 
@@ -17,13 +18,7 @@ db = SQLAlchemy(app)
 def calcular_similaridade(vetor1, vetor2):
     return cosine_similarity([vetor1], [vetor2])[0][0]
 
-# Função para normalizar os valores
-def normalizar(valor, minimo, maximo):
-    if maximo - minimo == 0:
-        return 0
-    return (valor - minimo) / (maximo - minimo)
-
-# Função para classificar o anosExperiencia
+# Função para classificar os anos de experiência
 def classificar_experiencia(anos):
     if anos <= 5:
         return 'Iniciante'
@@ -31,6 +26,7 @@ def classificar_experiencia(anos):
         return 'Intermediário'
     else:
         return 'Experiente'
+
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
     # Pegando os parâmetros da query string
@@ -51,11 +47,7 @@ def get_propostas():
 
     # Adiciona a data de entrega ao vetor se não for vazia
     if dtEntrega:
-        if isinstance(dtEntrega, str):
-            dtEntrega_usuario = datetime.strptime(dtEntrega, '%Y-%m-%d').date()
-        else:
-            dtEntrega_usuario = dtEntrega
-
+        dtEntrega_usuario = datetime.strptime(dtEntrega, '%Y-%m-%d').date()
         diff_dtEntrega_usuario = (dtEntrega_usuario - datetime.today().date()).days
         vetor_usuario.append(diff_dtEntrega_usuario)
         parametros_usuario.append('dtEntrega')
@@ -72,65 +64,54 @@ def get_propostas():
 
     # Buscar as propostas no banco de dados
     propostas = buscar_propostas(solicitacao)
+    if not propostas:
+        return jsonify([])
+
+    # Preparar dados para normalização
+    valores = np.array([proposta['valorTotal'] for proposta in propostas]).reshape(-1, 1)
+    entregas = np.array([(datetime.strptime(proposta['dtEntrega'], '%Y-%m-%d').date() - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
+
+    # Configurar os escalonadores
+    scaler_valor = MinMaxScaler()
+    scaler_entrega = MinMaxScaler()
+
+    # Normalizar os dados das propostas
+    valores_normalizados = scaler_valor.fit_transform(valores)
+    entregas_normalizadas = scaler_entrega.fit_transform(entregas)
+
+    # Normalizar vetor do usuário
+    vetor_usuario_array = np.array(vetor_usuario).reshape(-1, 1)
+    scaler_usuario = MinMaxScaler()
+    vetor_usuario_normalizado = scaler_usuario.fit_transform(vetor_usuario_array).flatten()
 
     # Calcular a similaridade de cada proposta com o vetor do usuário
     propostas_com_similaridade = []
 
-    for proposta in propostas:
+    for i, proposta in enumerate(propostas):
         vetor_proposta = []
 
         if 'valor' in parametros_usuario:
-            vetor_proposta.append(float(proposta['valorTotal']))
+            vetor_proposta.append(valores_normalizados[i][0])
         if 'dtEntrega' in parametros_usuario:
-            dtEntrega_proposta = proposta['dtEntrega']
-            diff = (dtEntrega_usuario - dtEntrega_proposta).days
-            vetor_proposta.append(abs(diff))  # Valor absoluto da diferença
+            vetor_proposta.append(entregas_normalizadas[i][0])
         if 'experiencia' in parametros_usuario:
-            vetor_proposta.append(int(proposta['anosExperiencia']))
+            vetor_proposta.append(proposta['anosExperiencia'] / 30.0)  # Normalizar anos de experiência (escala aproximada)
         if 'recorrente' in parametros_usuario:
-            if 'recorrente' in proposta and proposta['recorrente'] is not None:
-                vetor_proposta.append(int(proposta['recorrente']))
-            else:
-                vetor_proposta.append(0)
-
-        # Normalização dos vetores
-        vetor_usuario_normalizado = [normalizar(v, min(vetor_usuario), max(vetor_usuario)) for v in vetor_usuario]
-        vetor_proposta_normalizado = [normalizar(v, min(vetor_proposta), max(vetor_proposta)) for v in vetor_proposta]
+            vetor_proposta.append(proposta.get('recorrente', 0))
 
         # Calcular similaridade
-        if vetor_usuario_normalizado and vetor_proposta_normalizado:
-            similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
-            proposta['similaridade'] = similaridade
-            # Transformar recorrente para 'Sim' ou 'Não'
-            proposta['recorrente'] = 'Sim' if proposta['recorrente'] == 1 else 'Não'
-            # Lista de chaves na ordem desejada
-            ordem_chaves = ['idProposta', 'empresa', 'telefone', 'email', 'valorTotal', 'dtEntrega', 'recorrente', 'anosExperiencia', 'similaridade']
-            # Construindo o OrderedDict na ordem correta
-            proposta_ordenada = OrderedDict()
-            for chave in ordem_chaves:
-                # Garantir que só adicione a chave se ela existir na proposta
-                if chave in proposta:
-                    proposta_ordenada[chave] = proposta[chave]
-            proposta['similaridade'] = f"{similaridade * 100:.2f}%"  # Similaridade em formato de porcentagem
-            # Classificar experiência
+        if vetor_usuario_normalizado and vetor_proposta:
+            similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta)
+            proposta['similaridade'] = f"{similaridade * 100:.2f}%"
+
+            # Ajustar campos
             proposta['anosExperiencia'] = classificar_experiencia(proposta['anosExperiencia'])
-            # Organizar os campos na ordem correta
-            proposta_ordenada = {
-                'idProposta': proposta['idProposta'],
-                'empresa': proposta['empresa'],
-                'telefone': proposta['telefone'],
-                'email': proposta['email'],
-                'valorTotal': proposta['valorTotal'],
-                'dtEntrega': proposta['dtEntrega'],
-                'recorrente': 'Sim' if proposta['recorrente'] == 1 else 'Não',
-                'anosExperiencia': proposta['anosExperiencia'],
-                'similaridade': proposta['similaridade']
-            }
+            proposta['recorrente'] = 'Sim' if proposta['recorrente'] == 1 else 'Não'
 
-            propostas_com_similaridade.append(proposta_ordenada)
+            propostas_com_similaridade.append(proposta)
 
-    # Ordenar as propostas pela similaridade
-    propostas_com_similaridade.sort(key=lambda x: x['similaridade'], reverse=True)
+    # Ordenar pela similaridade
+    propostas_com_similaridade.sort(key=lambda x: float(x['similaridade'].replace('%', '')), reverse=True)
 
     return jsonify(propostas_com_similaridade)
 
@@ -168,8 +149,7 @@ def buscar_propostas(solicitacao):
             'valorTotal': row[4],
             'dtEntrega': row[5],
             'recorrente': row[6],
-            'anosExperiencia': row[7],
-            'similaridade': None  # Aqui adiciona-se a coluna similaridade
+            'anosExperiencia': row[7]
         })
         propostas.append(proposta)
 
