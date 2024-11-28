@@ -57,12 +57,15 @@ def get_propostas():
 
     valores = np.array([proposta['valorTotal'] for proposta in propostas]).reshape(-1, 1)
     entregas = np.array([(proposta['dtEntrega'] - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
+    experiencias = np.array([proposta['anosExperiencia'] for proposta in propostas]).reshape(-1, 1)
 
     scaler_valor = MinMaxScaler()
     scaler_entrega = MinMaxScaler()
+    scaler_experiencia = MinMaxScaler()
 
     valores_normalizados = scaler_valor.fit_transform(valores)
     entregas_normalizadas = scaler_entrega.fit_transform(entregas)
+    experiencias_normalizadas = scaler_experiencia.fit_transform(experiencias)
 
     vetor_usuario_normalizado = []
     if 'valor' in parametros_usuario:
@@ -70,9 +73,12 @@ def get_propostas():
     if 'dtEntrega' in parametros_usuario:
         vetor_usuario_normalizado.append(scaler_entrega.transform([[vetor_usuario[parametros_usuario.index('dtEntrega')]]])[0][0])
     if 'experiencia' in parametros_usuario:
-        vetor_usuario_normalizado.append(vetor_usuario[parametros_usuario.index('experiencia')] / 30.0)
+        vetor_usuario_normalizado.append(scaler_experiencia.transform([[vetor_usuario[parametros_usuario.index('experiencia')]]])[0][0])
     if 'recorrente' in parametros_usuario:
         vetor_usuario_normalizado.append(vetor_usuario[parametros_usuario.index('recorrente')])
+
+    # Exibir os vetores normalizados para verificar como estão
+    print("Vetor normalizado do usuário:", vetor_usuario_normalizado)
 
     propostas_com_similaridade = []
     for i, proposta in enumerate(propostas):
@@ -82,7 +88,7 @@ def get_propostas():
         if 'dtEntrega' in parametros_usuario:
             vetor_proposta.append(entregas_normalizadas[i][0])
         if 'experiencia' in parametros_usuario:
-            vetor_proposta.append(proposta['anosExperiencia'] / 30.0)
+            vetor_proposta.append(experiencias_normalizadas[i][0])
         if 'recorrente' in parametros_usuario:
             vetor_proposta.append(proposta.get('recorrente', 0))
 
@@ -99,7 +105,7 @@ def get_propostas():
     return jsonify(propostas_com_similaridade)
 
 def buscar_propostas(solicitacao):
-    sql = text("""
+    sql = text(""" 
         SELECT 
             p.idProposta,
             f.empresa,
