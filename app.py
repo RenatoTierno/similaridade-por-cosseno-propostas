@@ -56,7 +56,7 @@ def get_propostas():
         return jsonify([])
 
     valores = np.array([proposta['valorTotal'] for proposta in propostas]).reshape(-1, 1)
-    entregas = np.array([(proposta['dtEntrega'].date() - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
+    entregas = np.array([(proposta['dtEntrega'] - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
 
     scaler_valor = MinMaxScaler()
     scaler_entrega = MinMaxScaler()
