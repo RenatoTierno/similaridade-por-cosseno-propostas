@@ -15,6 +15,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 def calcular_similaridade(vetor1, vetor2):
+    # Garantir que os vetores não tenham valores negativos (ou muito próximos de zero)
+    vetor1 = np.clip(vetor1, 0, 1)
+    vetor2 = np.clip(vetor2, 0, 1)
     return cosine_similarity([vetor1], [vetor2])[0][0]
 
 def classificar_experiencia(anos):
