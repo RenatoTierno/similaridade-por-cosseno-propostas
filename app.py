@@ -9,18 +9,29 @@ from sklearn.preprocessing import MinMaxScaler
 
 app = Flask(__name__)
 
+# Configurações do banco de dados
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:_Arc3usadmin7410@fornecedores.cxic2sq6q4t5.us-east-1.rds.amazonaws.com/Fornecedores'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 def calcular_similaridade(vetor1, vetor2):
-    # Garantir que os vetores não tenham valores negativos (ou muito próximos de zero)
+    """Calcula a similaridade por cosseno entre dois vetores."""
+    # Garantir que os vetores não contenham valores inválidos (None ou NaN)
+    vetor1 = np.nan_to_num(vetor1, nan=0.0)
+    vetor2 = np.nan_to_num(vetor2, nan=0.0)
+    
+    # Garantir que os vetores estejam no intervalo [0, 1]
     vetor1 = np.clip(vetor1, 0, 1)
     vetor2 = np.clip(vetor2, 0, 1)
-    return cosine_similarity([vetor1], [vetor2])[0][0]
+    
+    # Calcular a similaridade por cosseno, se os vetores não forem vazios
+    if vetor1.size > 0 and vetor2.size > 0:
+        return cosine_similarity([vetor1], [vetor2])[0][0]
+    return 0  # Retorna 0 se não for possível calcular a similaridade
 
 def classificar_experiencia(anos):
+    """Classifica a experiência com base no número de anos."""
     if anos <= 5:
         return 'Iniciante'
     elif anos <= 15:
@@ -30,6 +41,7 @@ def classificar_experiencia(anos):
 
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
+    """Rota para buscar e calcular a similaridade das propostas."""
     solicitacao = request.args.get('solicitacao')
     dtEntrega = request.args.get('dtEntrega')
     valor = request.args.get('valor')
@@ -39,6 +51,7 @@ def get_propostas():
     vetor_usuario = []
     parametros_usuario = []
 
+    # Construir vetor do usuário
     if valor:
         vetor_usuario.append(float(valor))
         parametros_usuario.append('valor')
@@ -54,10 +67,12 @@ def get_propostas():
         vetor_usuario.append(int(recorrente))
         parametros_usuario.append('recorrente')
 
+    # Buscar propostas no banco de dados
     propostas = buscar_propostas(solicitacao)
     if not propostas:
         return jsonify([])
 
+    # Normalizar os dados das propostas
     valores = np.array([proposta['valorTotal'] for proposta in propostas]).reshape(-1, 1)
     entregas = np.array([(proposta['dtEntrega'] - datetime.today().date()).days for proposta in propostas]).reshape(-1, 1)
     experiencias = np.array([proposta['anosExperiencia'] for proposta in propostas]).reshape(-1, 1)
@@ -70,6 +85,7 @@ def get_propostas():
     entregas_normalizadas = scaler_entrega.fit_transform(entregas)
     experiencias_normalizadas = scaler_experiencia.fit_transform(experiencias)
 
+    # Normalizar o vetor do usuário
     vetor_usuario_normalizado = []
     if 'valor' in parametros_usuario:
         vetor_usuario_normalizado.append(scaler_valor.transform([[vetor_usuario[parametros_usuario.index('valor')]]])[0][0])
@@ -80,9 +96,9 @@ def get_propostas():
     if 'recorrente' in parametros_usuario:
         vetor_usuario_normalizado.append(vetor_usuario[parametros_usuario.index('recorrente')])
 
-    # Exibir os vetores normalizados para verificar como estão
-    print("Vetor normalizado do usuário:", vetor_usuario_normalizado)
+    vetor_usuario_normalizado = np.array(vetor_usuario_normalizado)
 
+    # Calcular similaridade e preparar a resposta
     propostas_com_similaridade = []
     for i, proposta in enumerate(propostas):
         vetor_proposta = []
@@ -95,8 +111,9 @@ def get_propostas():
         if 'recorrente' in parametros_usuario:
             vetor_proposta.append(proposta.get('recorrente', 0))
 
-        if vetor_usuario_normalizado and vetor_proposta:
-            vetor_proposta_normalizado = np.array(vetor_proposta)
+        vetor_proposta_normalizado = np.array(vetor_proposta)
+
+        if vetor_usuario_normalizado.size > 0 and vetor_proposta_normalizado.size > 0:
             similaridade = calcular_similaridade(vetor_usuario_normalizado, vetor_proposta_normalizado)
             proposta['similaridade'] = f"{similaridade * 100:.2f}%"
             proposta['anosExperiencia'] = classificar_experiencia(proposta['anosExperiencia'])
@@ -104,10 +121,12 @@ def get_propostas():
             proposta['dtEntrega'] = proposta['dtEntrega'].strftime('%Y-%m-%d')
             propostas_com_similaridade.append(proposta)
 
+    # Ordenar por similaridade em ordem decrescente
     propostas_com_similaridade.sort(key=lambda x: float(x['similaridade'].replace('%', '')), reverse=True)
     return jsonify(propostas_com_similaridade)
 
 def buscar_propostas(solicitacao):
+    """Busca as propostas no banco de dados para a solicitação especificada."""
     sql = text(""" 
         SELECT 
             p.idProposta,
