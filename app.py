@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict
 from sklearn.preprocessing import MinMaxScaler
 
@@ -38,6 +38,53 @@ def classificar_experiencia(anos):
         return 'Intermediário'
     else:
         return 'Experiente'
+
+@app.route('/atualizar_proposta', methods=['GET', 'POST'])
+def atualizar_proposta():
+    """Rota para atualizar a proposta e a solicitação."""
+    proposta_id = request.args.get('idProposta')  # Recebe o valor de 'idProposta' da query string
+
+    status_solicitacao = 'A AVALIAR'  # Novo status para a solicitação
+
+    if not proposta_id:
+        return jsonify({'error': 'ID da proposta é necessário.'}), 400
+
+    try:
+        # Ajustar a data e hora para 3 horas atrás
+        dt_escolha = datetime.today() - timedelta(hours=3)
+        
+        # Atualizar a tabela Proposta
+        proposta = db.session.execute(
+            text(""" 
+                UPDATE Proposta 
+                SET escolhido = 1, dtEscolha = :dt_escolha
+                WHERE idProposta = :proposta_id
+            """), {'dt_escolha': dt_escolha, 'proposta_id': proposta_id}
+        )
+        
+        # Atualizar a tabela Solicitacao
+        solicitacao = db.session.execute(
+            text(""" 
+                UPDATE Solicitacao 
+                SET status = :status 
+                WHERE idSolicitacao = (
+                    SELECT fkSolicitacao
+                    FROM Proposta
+                    WHERE idProposta = :proposta_id
+                )
+            """), {'status': status_solicitacao, 'proposta_id': proposta_id}
+        )
+
+        # Commit das alterações no banco de dados
+        db.session.commit()
+
+        return jsonify({'message': 'Proposta e Solicitação atualizadas com sucesso.'}), 200
+
+    except Exception as e:
+        # Em caso de erro, desfazer as alterações no banco
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/propostas', methods=['GET'])
 def get_propostas():
