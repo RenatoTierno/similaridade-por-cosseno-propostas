@@ -41,6 +41,7 @@ def classificar_experiencia(anos):
 
 @app.route('/atualizar_proposta', methods=['GET', 'POST'])
 def atualizar_proposta():
+    print('cheguei aqui')
     """Rota para atualizar a proposta e a solicitação."""
     proposta_id = request.args.get('idProposta')  # Recebe o valor de 'idProposta' da query string
 
